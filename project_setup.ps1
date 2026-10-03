@@ -45,27 +45,26 @@ pub fn build(b: *std.Build) !void {
         });
 
         const install_dir: std.Build.InstallDir = .{ .custom = "web" };
-        const emcc_flags = emsdk.emccDefaultFlags(b.allocator, .{
+        var emcc_flags = emsdk.emccDefaultFlags(b.allocator, .{
             .optimize = optimize,
         });
+        try emcc_flags.put("--embed-file=resources@resources", {});
         const emcc_settings = emsdk.emccDefaultSettings(b.allocator, .{
             .optimize = optimize,
         });
 
-        const emcc_step = emsdk.emccStep(b, raylib_artifact, wasm, .{
+        const emcc_step = emsdk.emccStep(b, &.{}, &.{ raylib_artifact, wasm }, .{
             .optimize = optimize,
             .flags = emcc_flags,
             .settings = emcc_settings,
-            .shell_file_path = emsdk.shell(raylib_dep),
             .install_dir = install_dir,
-            .embed_paths = &.{.{ .src_path = "resources/" }},
+            .out_file_name = b.fmt("{s}.html", .{wasm.name}),
         });
         b.getInstallStep().dependOn(emcc_step);
 
-        const html_filename = try std.fmt.allocPrint(b.allocator, "{s}.html", .{wasm.name});
         const emrun_step = emsdk.emrunStep(
             b,
-            b.getInstallPath(install_dir, html_filename),
+            b.graph.path(.install_prefix, b.fmt("web/{s}.html", .{wasm.name})),
             &.{},
         );
 

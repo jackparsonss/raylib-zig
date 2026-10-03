@@ -68,16 +68,16 @@ pub const Control = enum(c_int) {
 };
 
 fn MergedProperty(comptime Other: type) type {
-    const all = @typeInfo(ControlProperty).@"enum".fields ++ @typeInfo(Other).@"enum".fields;
-    comptime var names: [all.len][:0]const u8 = undefined;
-    comptime var values: [all.len]c_int = undefined;
+    const control_info = @typeInfo(ControlProperty).@"enum";
+    const other_info = @typeInfo(Other).@"enum";
+    const names = control_info.field_names ++ other_info.field_names;
+    comptime var values: [names.len]c_int = undefined;
 
-    inline for (all, 0..) |field, i| {
-        names[i] = field.name;
-        values[i] = field.value;
+    inline for (control_info.field_values ++ other_info.field_values, 0..) |value, i| {
+        values[i] = value;
     }
 
-    return @Enum(c_int, .exhaustive, &names, &values);
+    return @Enum(c_int, .exhaustive, names, &values);
 }
 
 fn PropertyType(comptime control: Control) type {
@@ -481,9 +481,9 @@ pub fn loadIcons(fileName: [*c]const u8, loadIconsName: bool) [*c][*c]u8 {
     return cdef.GuiLoadIcons(fileName, loadIconsName);
 }
 
-/// Tab Bar control, returns TAB to be closed or -1
-pub fn tabBar(bounds: Rectangle, text: [][*:0]u8, active: *i32) i32 {
-    return @as(i32, cdef.GuiTabBar(bounds, @as([*c][*c]u8, @ptrCast(text)), @as(c_int, @intCast(text.len)), @as([*c]c_int, @ptrCast(active))));
+/// Tab Bar control, using text entries list and returning focus entry
+pub fn tabBarEx(bounds: Rectangle, text: [][*:0]u8, hscroll: *i32, active: *i32, focus: *i32) i32 {
+    return @as(i32, cdef.GuiTabBarEx(bounds, @as([*c][*c]u8, @ptrCast(text)), @as(c_int, @intCast(text.len)), @as([*c]c_int, @ptrCast(hscroll)), @as([*c]c_int, @ptrCast(active)), @as([*c]c_int, @ptrCast(focus))));
 }
 
 /// List View with extended parameters

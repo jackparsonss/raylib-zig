@@ -4,7 +4,7 @@
 
 Manually tweaked, auto-generated [raylib](https://github.com/raysan5/raylib) bindings for zig.
 
-Bindings tested on raylib version 6.0 and Zig 0.16.0
+Bindings tested on raylib master (post-6.0, commit 2282404 from [raysan5/raylib#5951](https://github.com/raysan5/raylib/pull/5951)) and Zig 0.17.0
 
 Thanks to all the [contributors](https://github.com/raylib-zig/raylib-zig/graphs/contributors) for their help with this
 binding.
@@ -137,18 +137,18 @@ if (target.query.os_tag == .emscripten) {
     const emcc_flags = emsdk.emccDefaultFlags(b.allocator, .{ .optimize = optimize });
     const emcc_settings = emsdk.emccDefaultSettings(b.allocator, .{ .optimize = optimize });
 
-    const emcc_step = emsdk.emccStep(b, raylib_artifact, wasm, .{
+    const emcc_step = emsdk.emccStep(b, &.{}, &.{ raylib_artifact, wasm }, .{
         .optimize = optimize,
         .flags = emcc_flags,
         .settings = emcc_settings,
         .install_dir = install_dir,
+        .out_file_name = b.fmt("{s}.html", .{wasm.name}),
     });
     b.getInstallStep().dependOn(emcc_step);
 
-    const html_filename = try std.fmt.allocPrint(b.allocator, "{s}.html", .{wasm.name});
     const emrun_step = emsdk.emrunStep(
         b,
-        b.getInstallPath(install_dir, html_filename),
+        b.graph.path(.install_prefix, b.fmt("web/{s}.html", .{wasm.name})),
         &.{},
     );
 

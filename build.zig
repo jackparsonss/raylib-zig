@@ -16,7 +16,7 @@ const Program = struct {
     desc: []const u8,
 };
 
-fn getModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module {
+fn getModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.lang.Optimize) *std.Build.Module {
     if (b.modules.contains("raylib")) {
         return b.modules.get("raylib").?;
     }
@@ -29,7 +29,7 @@ fn getModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
 }
 
 const gui = struct {
-    fn getModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module {
+    fn getModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.lang.Optimize) *std.Build.Module {
         const raylib = this.getModule(b, target, optimize);
         return b.addModule("raygui", .{
             .root_source_file = b.path("lib/raygui.zig"),
@@ -551,13 +551,16 @@ pub fn build(b: *std.Build) !void {
     const generate_binding_step = b.step("binding", "Generate the binding");
 
     const usf_dependency = b.addUpdateSourceFiles();
-    usf_dependency.addCopyFileToSource(raylib_headers.get("raylib.h").?, "lib/raylib.h");
-    usf_dependency.addCopyFileToSource(raylib_headers.get("raymath.h").?, "lib/raymath.h");
-    usf_dependency.addCopyFileToSource(raylib_headers.get("rlgl.h").?, "lib/rlgl.h");
-    usf_dependency.addCopyFileToSource(raylib_headers.get("raygui.h").?, "lib/raygui.h");
+    // Headers from lazy dependencies (raygui.h) are missing until zig has fetched them,
+    // so don't unwrap here or the configure phase aborts before the fetch can happen.
+    inline for (.{ "raylib.h", "raymath.h", "rlgl.h", "raygui.h" }) |header| {
+        if (raylib_headers.get(header)) |source| {
+            usf_dependency.addCopyFileToSource(source, "lib/" ++ header);
+        }
+    }
 
     const bind_step = b.addSystemCommand(&.{"python3"});
-    bind_step.addFileArg(b.path("lib/generate_functions.py"));
+    bind_step.addFileArg2(b.path("lib/generate_functions.py"), .{});
     bind_step.setCwd(b.path("lib"));
     bind_step.step.dependOn(&usf_dependency.step);
 
@@ -581,27 +584,30 @@ pub fn build(b: *std.Build) !void {
             wasm.root_module.addImport("raygui", raygui);
 
             const install_dir: std.Build.InstallDir = .{ .custom = "web" };
-            const emcc_flags = emsdk.emccDefaultFlags(b.allocator, .{
+            var emcc_flags = emsdk.emccDefaultFlags(b.allocator, .{
                 .optimize = optimize,
                 .asyncify = !std.mem.endsWith(u8, ex.name, "web"),
             });
+            // emsdk.emccStep passes `embed_paths` to emcc as a file argument, which Zig 0.17
+            // rejects for directories, so embed the resources directory with a flag instead.
+            try emcc_flags.put("--embed-file=resources@resources", {});
             const emcc_settings = emsdk.emccDefaultSettings(b.allocator, .{
                 .optimize = optimize,
             });
 
-            const emcc_step = emsdk.emccStep(b, raylib_artifact, wasm, .{
+            const html_filename = b.fmt("{s}.html", .{wasm.name});
+            const emcc_step = emsdk.emccStep(b, &.{}, &.{ raylib_artifact, wasm }, .{
                 .optimize = optimize,
                 .flags = emcc_flags,
                 .settings = emcc_settings,
-                .shell_file_path = emsdk.shell(raylib_dep),
+                .shell_file_path = raylib_dep.path("src/shell.html"),
                 .install_dir = install_dir,
-                .embed_paths = &.{.{ .src_path = "resources/" }},
+                .out_file_name = html_filename,
             });
 
-            const html_filename = try std.fmt.allocPrint(b.allocator, "{s}.html", .{wasm.name});
             const emrun_step = emsdk.emrunStep(
                 b,
-                b.getInstallPath(install_dir, html_filename),
+                b.graph.path(.install_prefix, b.fmt("web/{s}", .{html_filename})),
                 &.{},
             );
             emrun_step.dependOn(emcc_step);

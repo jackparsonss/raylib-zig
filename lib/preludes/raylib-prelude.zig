@@ -1153,7 +1153,7 @@ pub const Image = extern struct {
     }
 
     /// Modify image color: contrast (-100 to 100)
-    pub fn contrast(self: *Image, c: f32) void {
+    pub fn contrast(self: *Image, c: i32) void {
         rl.imageColorContrast(self, c);
     }
 
@@ -1238,13 +1238,23 @@ pub const Image = extern struct {
     }
 
     /// Draw rectangle lines within an image
-    pub fn drawRectangleLines(self: *Image, rec: Rectangle, thick: i32, color: Color) void {
-        rl.imageDrawRectangleLines(self, rec, thick, color);
+    pub fn drawRectangleLines(self: *Image, posX: i32, posY: i32, width: i32, height: i32, color: Color) void {
+        rl.imageDrawRectangleLines(self, posX, posY, width, height, color);
     }
 
-    /// Draw a source image within a destination image (tint applied to source)
-    pub fn drawImage(self: *Image, src: Image, srcRec: Rectangle, dstRec: Rectangle, t: Color) void {
-        rl.imageDraw(self, src, srcRec, dstRec, t);
+    /// Draw rectangle lines within an image with line thickness
+    pub fn drawRectangleLinesEx(self: *Image, rec: Rectangle, thick: i32, color: Color) void {
+        rl.imageDrawRectangleLinesEx(self, rec, thick, color);
+    }
+
+    /// Draw an image within an image
+    pub fn drawImage(self: *Image, src: Image, posX: i32, posY: i32, t: Color) void {
+        rl.imageDrawImage(self, src, posX, posY, t);
+    }
+
+    /// Draw a part of an image defined by a rectangle into destination rectangle, with scaling and rotation, within an image
+    pub fn drawImagePro(self: *Image, src: Image, srcRec: Rectangle, dstRec: Rectangle, origin: Vector2, rotation: f32, t: Color) void {
+        rl.imageDrawImagePro(self, src, srcRec, dstRec, origin, rotation, t);
     }
 
     /// Draw text (using default font) within an image (destination)

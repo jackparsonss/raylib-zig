@@ -47,14 +47,16 @@ pub fn main() !void {
             show_message_box = true;
 
         if (show_message_box) {
+            var button: i32 = 0;
             const result = rg.messageBox(
                 .init(85, 70, 250, 100),
                 "#191#Message Box",
                 "Hi! This is a message",
                 "Nice;Cool",
+                &button,
             );
 
-            if (result >= 0) show_message_box = false;
+            if (result > 0) show_message_box = false;
         }
     }
 }
